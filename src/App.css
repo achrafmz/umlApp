@@ -1,0 +1,21 @@
+.App {
+    text-align: center;
+}
+
+.toolbar {
+    margin-bottom: 20px;
+}
+
+.diagram {
+    border: 1px solid #ddd;
+}
+
+.modal {
+    position: fixed;
+    top: 20%;
+    left: 20%;
+    width: 60%;
+    background: white;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
