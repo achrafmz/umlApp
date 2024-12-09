@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/achrafmz/umlApp/static/css/main.b1b7cca7.css",
+    "main.js": "/achrafmz/umlApp/static/js/main.a1ba0971.js",
+    "static/js/453.f579affb.chunk.js": "/achrafmz/umlApp/static/js/453.f579affb.chunk.js",
+    "index.html": "/achrafmz/umlApp/index.html",
+    "main.b1b7cca7.css.map": "/achrafmz/umlApp/static/css/main.b1b7cca7.css.map",
+    "main.a1ba0971.js.map": "/achrafmz/umlApp/static/js/main.a1ba0971.js.map",
+    "453.f579affb.chunk.js.map": "/achrafmz/umlApp/static/js/453.f579affb.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.b1b7cca7.css",
+    "static/js/main.a1ba0971.js"
+  ]
+}
