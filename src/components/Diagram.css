@@ -16,12 +16,12 @@ h1 {
 
 /* Boîte de l'élément de diagramme */
 #paper {
-    width: 120009px; /* Augmenter la largeur */
-    height: 800px; /* Augmenter la hauteur */
+    
     border: 2px solid #ccc;
     margin: 20px auto;
     background-color: #fff;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(144, 44, 44, 0.1);
+    
 }
 
 /* Styles pour la barre d'outils */
