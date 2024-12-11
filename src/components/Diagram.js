@@ -4,8 +4,6 @@ import 'jointjs/dist/joint.css';
 import './Diagram.css';
 import Toolbar from './Toolbar';
 import Modal from 'react-modal';
-// Supprimer l'importation en double de generateJavaCode
-// import generateJavaCode from './CodeGenerator';
 
 Modal.setAppElement('#root');
 
@@ -35,12 +33,14 @@ const Diagram = () => {
     const [isInheritanceMode, setIsInheritanceMode] = useState(false);
     const [parentClass, setParentClass] = useState(null);
 
+    const [isInterfaceMode, setIsInterfaceMode] = useState(false);
+
     useEffect(() => {
         const newPaper = new dia.Paper({
             el: document.getElementById('paper'),
             model: graph,
-            width: 800,
-            height: 600,
+            width: 1200,
+            height: 800,
             gridSize: 10,
         });
 
@@ -48,8 +48,8 @@ const Diagram = () => {
             const model = elementView.model;
             setCurrentElement(model);
             setClassName(model.attr('label/text'));
-            setAttributes(JSON.parse(model.attr('attributes') || '[]')); 
-            setMethods(JSON.parse(model.attr('methods') || '[]'));       
+            setAttributes(JSON.parse(model.attr('attributes') || '[]'));
+            setMethods(JSON.parse(model.attr('methods') || '[]'));
             setModalIsOpen(true);
         });
 
@@ -60,7 +60,7 @@ const Diagram = () => {
                 } else {
                     createAssociation(sourceClass, elementView.model);
                     setSourceClass(null);
-                    setIsLinkMode(false); 
+                    setIsLinkMode(false);
                 }
             } else if (isInheritanceMode) {
                 if (!parentClass) {
@@ -70,6 +70,9 @@ const Diagram = () => {
                     setParentClass(null);
                     setIsInheritanceMode(false);
                 }
+            } else if (isInterfaceMode) {
+                createInterface(elementView.model);
+                setIsInterfaceMode(false);
             }
         });
 
@@ -78,11 +81,11 @@ const Diagram = () => {
             setCurrentLink(link);
             setMultiplicitySource(link.label(0)?.attrs?.text?.text || '1..1');
             setMultiplicityTarget(link.label(1)?.attrs?.text?.text || '1..1');
-            setLinkModalIsOpen(true); 
+            setLinkModalIsOpen(true);
         });
 
         setPaper(newPaper);
-    }, [graph, isLinkMode, isInheritanceMode, sourceClass, parentClass]);
+    }, [graph, isLinkMode, isInheritanceMode, isInterfaceMode, sourceClass, parentClass]);
 
     const addClass = () => {
         const rect = new shapes.standard.Rectangle();
@@ -101,13 +104,40 @@ const Diagram = () => {
                 strokeWidth: 2,
             },
         });
-    
+
         rect.addTo(graph);
         resetInputs();
     };
-    
+
+    const addInterface = () => {
+        const rect = new shapes.standard.Rectangle();
+        rect.position(100, 30);
+        rect.resize(200, 150);
+        rect.attr({
+            label: {
+                text: formatInterfaceBox(),
+                fontSize: 12,
+                fontFamily: 'Arial',
+                textAnchor: 'middle',
+            },
+            body: {
+                fill: 'lightgreen',
+                stroke: 'black',
+                strokeWidth: 2,
+                dasharray: '5,5', // Pour différencier visuellement les interfaces
+            },
+        });
+
+        rect.addTo(graph);
+        resetInputs();
+    };
+
     const formatClassBox = () => {
         return `${className || 'Nouvelle Classe'}\n---\n${formatAttributes()}\n---\n${formatMethods()}`;
+    };
+
+    const formatInterfaceBox = () => {
+        return `interface ${className || 'Nouvelle Interface'}\n---\n${formatMethods()}`;
     };
 
     const formatAttributes = () => {
@@ -132,21 +162,21 @@ const Diagram = () => {
     const handleSave = () => {
         if (currentElement) {
             const formattedAttributes = attributes.map(attr => `${attr.type} ${attr.name}`).join('\n');
-            const formattedMethods = methods.map(method => `${method.returnType} ${method.name}()` ).join('\n');
-    
+            const formattedMethods = methods.map(method => `${method.returnType} ${method.name}()`).join('\n');
+
             currentElement.attr({
                 label: {
-                    text: `${className || 'Nouvelle Classe'}\n---\n${formattedAttributes}\n---\n${formattedMethods}`,
+                    text: `${className.includes('interface') ? 'interface ' : ''}${className || 'Nouvelle Classe'}\n---\n${formattedAttributes}\n---\n${formattedMethods}`,
                     fontSize: 12,
                     fontFamily: 'Arial',
                     textAnchor: 'middle',
                 },
-                attributes: JSON.stringify(attributes), 
-                methods: JSON.stringify(methods),       
+                attributes: JSON.stringify(attributes),
+                methods: JSON.stringify(methods),
             });
-    
+
             setModalIsOpen(false);
-            resetInputs();  
+            resetInputs();
         }
     };
 
@@ -165,6 +195,7 @@ const Diagram = () => {
     const deleteClass = () => {
         if (currentElement) {
             currentElement.remove();
+            resetInputs(); // Réinitialiser les champs après la suppression
             setModalIsOpen(false);
         }
     };
@@ -240,12 +271,35 @@ const Diagram = () => {
         link.addTo(graph);
     };
 
+    const createInterface = (element) => {
+        const link = new shapes.standard.Link();
+        link.source(element);
+        link.source(element);
+        link.target(currentElement);
+        link.attr({
+            line: {
+                stroke: 'blue',
+                strokeWidth: 2,
+                targetMarker: {
+                    type: 'path',
+                    d: 'M 10 -5 L 0 0 L 10 5 z',
+                    fill: 'blue',
+                },
+            },
+        });
+        link.addTo(graph);
+    };
+
     const enableLinkMode = () => {
         setIsLinkMode(true);
     };
 
     const enableInheritanceMode = () => {
         setIsInheritanceMode(true);
+    };
+
+    const enableInterfaceMode = () => {
+        setIsInterfaceMode(true);
     };
 
     const handleLinkSave = () => {
@@ -295,43 +349,77 @@ const Diagram = () => {
             return map;
         };
 
+        const getInterfaceMap = (links) => {
+            const map = new Map();
+            links.forEach(link => {
+                if (link.attr('line/stroke') === 'blue') {
+                    const sourceId = link.source().id;
+                    const targetId = link.target().id;
+                    if (!map.has(targetId)) {
+                        map.set(targetId, []);
+                    }
+                    map.get(targetId).push(sourceId);
+                }
+            });
+            return map;
+        };
+
         const inheritanceMap = getInheritanceMap(links);
+        const interfaceMap = getInterfaceMap(links);
 
         elements.forEach((element) => {
             const className = element.attr('label/text').split('\n')[0];
             const attributes = JSON.parse(element.attr('attributes') || '[]');
             const methods = JSON.parse(element.attr('methods') || '[]');
             const parentClassId = inheritanceMap.get(element.id);
+            const interfaces = interfaceMap.get(element.id) || [];
 
-            code += `public class ${className}`;
-            if (parentClassId) {
-                const parentClassElement = elements.find(el => el.id === parentClassId);
-                const parentClassName = parentClassElement?.attr('label/text').split('\n')[0];
-                if (parentClassName) {
-                    code += ` extends ${parentClassName}`;
-                }
-            }
-            code += ' {\n';
-            
-            // Ajouter les attributs
-            attributes.forEach(attr => {
-                code += `    private ${attr.type} ${attr.name};\n`;
-            });
-            
-            code += '\n';
-            
-            // Ajouter les méthodes
-            methods.forEach(method => {
-                const returnType = method.returnType;
-                const existingClass = elements.find(el => el.attr('label/text').split('\n')[0] === returnType);
-                const finalReturnType = existingClass ? returnType : method.returnType;
+            if (className.startsWith('interface')) {
+                code += `interface ${className.replace('interface ', '')} {\n`;
                 
-                code += `    public ${finalReturnType} ${method.name}() {\n`;
-                code += '        // TODO: implement this method\n';
-                code += '    }\n';
-            });
-            
-            code += '}\n\n';
+                // Ajouter les méthodes
+                methods.forEach(method => {
+                    code += `    ${method.returnType} ${method.name}();\n`;
+                });
+                
+                code += '}\n\n';
+            } else {
+                code += `public class ${className}`;
+                if (parentClassId) {
+                    const parentClassElement = elements.find(el => el.id === parentClassId);
+                    const parentClassName = parentClassElement?.attr('label/text').split('\n')[0];
+                    if (parentClassName) {
+                        code += ` extends ${parentClassName}`;
+                    }
+                }
+                if (interfaces.length > 0) {
+                    code += ` implements ${interfaces.map(id => {
+                        const interfaceElement = elements.find(el => el.id === id);
+                        return interfaceElement?.attr('label/text').split('\n')[0].replace('interface ', '');
+                    }).join(', ')}`;
+                }
+                code += ' {\n';
+                
+                // Ajouter les attributs
+                attributes.forEach(attr => {
+                    code += `    private ${attr.type} ${attr.name};\n`;
+                });
+                
+                code += '\n';
+                
+                // Ajouter les méthodes
+                methods.forEach(method => {
+                    const returnType = method.returnType;
+                    const existingClass = elements.find(el => el.attr('label/text').split('\n')[0] === returnType);
+                    const finalReturnType = existingClass ? returnType : method.returnType;
+                    
+                    code += `    public ${finalReturnType} ${method.name}() {\n`;
+                    code += '        // TODO: implement this method\n';
+                    code += '    }\n';
+                });
+                
+                code += '}\n\n';
+            }
         });
 
         return code;
@@ -354,43 +442,77 @@ const Diagram = () => {
             return map;
         };
 
+        const getInterfaceMap = (links) => {
+            const map = new Map();
+            links.forEach(link => {
+                if (link.attr('line/stroke') === 'blue') {
+                    const sourceId = link.source().id;
+                    const targetId = link.target().id;
+                    if (!map.has(targetId)) {
+                        map.set(targetId, []);
+                    }
+                    map.get(targetId).push(sourceId);
+                }
+            });
+            return map;
+        };
+
         const inheritanceMap = getInheritanceMap(links);
+        const interfaceMap = getInterfaceMap(links);
 
         elements.forEach((element) => {
             const className = element.attr('label/text').split('\n')[0];
             const attributes = JSON.parse(element.attr('attributes') || '[]');
             const methods = JSON.parse(element.attr('methods') || '[]');
             const parentClassId = inheritanceMap.get(element.id);
+            const interfaces = interfaceMap.get(element.id) || [];
 
-            code += `class ${className}`;
-            if (parentClassId) {
-                const parentClassElement = elements.find(el => el.id === parentClassId);
-                const parentClassName = parentClassElement?.attr('label/text').split('\n')[0];
-                if (parentClassName) {
-                    code += ` extends ${parentClassName}`;
+            if (className.startsWith('interface')) {
+                code += `interface ${className.replace('interface ', '')} {\n`;
+                
+                // Ajouter les méthodes
+                methods.forEach(method => {
+                    code += `    public function ${method.name}();\n`;
+                });
+                
+                code += '}\n\n';
+            } else {
+                code += `class ${className}`;
+                if (parentClassId) {
+                    const parentClassElement = elements.find(el => el.id === parentClassId);
+                    const parentClassName = parentClassElement?.attr('label/text').split('\n')[0];
+                    if (parentClassName) {
+                        code += ` extends ${parentClassName}`;
+                    }
                 }
-            }
-            code += ' {\n';
-            
-            // Ajouter les attributs
-            attributes.forEach(attr => {
-                code += `    private $${attr.name};\n`;
-            });
-            
-            code += '\n';
-            
-            // Ajouter les méthodes
-            methods.forEach(method => {
-                const returnType = method.returnType;
-                const existingClass = elements.find(el => el.attr('label/text').split('\n')[0] === returnType);
-                const finalReturnType = existingClass ? returnType : method.returnType;
+                if (interfaces.length > 0) {
+                    code += ` implements ${interfaces.map(id => {
+                        const interfaceElement = elements.find(el => el.id === id);
+                        return interfaceElement?.attr('label/text').split('\n')[0].replace('interface ', '');
+                    }).join(', ')}`;
+                }
+                code += ' {\n';
+                
+                // Ajouter les attributs
+                attributes.forEach(attr => {
+                    code += `    private $${attr.name};\n`;
+                });
+                
+                code += '\n';
+                
+                // Ajouter les méthodes
+                methods.forEach(method => {
+                    const returnType = method.returnType;
+                    const existingClass = elements.find(el => el.attr('label/text').split('\n')[0] === returnType);
+                    const finalReturnType = existingClass ? returnType : method.returnType;
 
-                code += `    public function ${method.name}() {\n`;
-                code += '        // TODO: implement this method\n';
-                code += '    }\n';
-            });
-            
-            code += '}\n\n';
+                    code += `    public function ${method.name}() {\n`;
+                    code += '        // TODO: implement this method\n';
+                    code += '    }\n';
+                });
+                
+                code += '}\n\n';
+            }
         });
 
         return code;
@@ -413,44 +535,85 @@ const Diagram = () => {
             return map;
         };
 
+        const getInterfaceMap = (links) => {
+            const map = new Map();
+            links.forEach(link => {
+                if (link.attr('line/stroke') === 'blue') {
+                    const sourceId = link.source().id;
+                    const targetId = link.target().id;
+                    if (!map.has(targetId)) {
+                        map.set(targetId, []);
+                    }
+                    map.get(targetId).push(sourceId);
+                }
+            });
+            return map;
+        };
+
         const inheritanceMap = getInheritanceMap(links);
+        const interfaceMap = getInterfaceMap(links);
 
         elements.forEach((element) => {
             const className = element.attr('label/text').split('\n')[0];
             const attributes = JSON.parse(element.attr('attributes') || '[]');
             const methods = JSON.parse(element.attr('methods') || '[]');
             const parentClassId = inheritanceMap.get(element.id);
+            const interfaces = interfaceMap.get(element.id) || [];
 
-            code += `class ${className}`;
-            if (parentClassId) {
-                const parentClassElement = elements.find(el => el.id === parentClassId);
-                const parentClassName = parentClassElement?.attr('label/text').split('\n')[0];
-                if (parentClassName) {
-                    code += `(${parentClassName})`;
+            if (className.startsWith('interface')) {
+                code += `class ${className.replace('interface ', '')}:\n`;
+                
+                // Ajouter les méthodes
+                methods.forEach(method => {
+                    code += `    def ${method.name}(self):\n`;
+                    code += '        pass\n';
+                });
+                
+                code += '\n';
+            } else {
+                code += `class ${className}`;
+                if (parentClassId) {
+                    const parentClassElement = elements.find(el => el.id === parentClassId);
+                    const parentClassName = parentClassElement?.attr('label/text').split('\n')[0];
+                    if (parentClassName) {
+                        code += `(${parentClassName}`;
+                        if (interfaces.length > 0) {
+                            code += `, ${interfaces.map(id => {
+                                const interfaceElement = elements.find(el => el.id === id);
+                                return interfaceElement?.attr('label/text').split('\n')[0].replace('interface ', '');
+                            }).join(', ')}`;
+                        }
+                        code += ')';
+                    }
+                } else if (interfaces.length > 0) {
+                    code += `(${interfaces.map(id => {
+                        const interfaceElement = elements.find(el => el.id === id);
+                        return interfaceElement?.attr('label/text').split('\n')[0].replace('interface ', '');
+                    }).join(', ')})`;
                 }
-            }
-            code += ':\n';
-            
-            // Ajouter les attributs
-            attributes.forEach(attr => {
-                code += `    def __init__(self, ${attr.name}):\n`;
-                code += `        self.${attr.name} = ${attr.name}\n`;
-            });
-            
-            code += '\n';
-            
-            // Ajouter les méthodes
-            methods.forEach(method => {
-                const returnType = method.returnType;
-                const existingClass = elements.find(el => el.attr('label/text').split('\n')[0] === returnType);
-                const finalReturnType = existingClass ? returnType : method.returnType;
+                code += ':\n';
+                
+                // Ajouter les attributs
+                attributes.forEach(attr => {
+                    code += `    def __init__(self, ${attr.name}):\n`;
+                    code += `        self.${attr.name} = ${attr.name}\n`;
+                });
+                
+                code += '\n';
+                
+                // Ajouter les méthodes
+                methods.forEach(method => {
+                    const returnType = method.returnType;
+                    const existingClass = elements.find(el => el.attr('label/text').split('\n')[0] === returnType);
+                    const finalReturnType = existingClass ? returnType : method.returnType;
 
-                code += `    def ${method.name}(self):\n`;
-                code += '        # TODO: implement this method\n';
-                code += '        pass\n';
-            });
-            
-            code += '\n';
+                    code += `    def ${method.name}(self):\n`;
+                    code += '        # TODO: implement this method\n';
+                    code += '        pass\n';
+                });
+                
+                code += '\n';
+            }
         });
 
         return code;
@@ -478,6 +641,9 @@ const Diagram = () => {
             <button onClick={enableInheritanceMode} disabled={isLinkMode || isInheritanceMode}>
                 Héritage
             </button>
+            <button onClick={enableInterfaceMode} disabled={isLinkMode || isInheritanceMode}>
+                Implémenter une Interface
+            </button>
             <button onClick={handleGenerateCode}>
                 Générer le Code Java
             </button>
@@ -487,10 +653,13 @@ const Diagram = () => {
             <button onClick={handleGeneratePythonCode}>
                 Générer le Code Python
             </button>
+            <button onClick={addInterface}>
+                Ajouter une Interface
+            </button>
             <div 
                 id="paper" 
                 ref={paperRef}
-                style={{ width: '800px', height: '600px', border: '1px solid black' }}></div>
+                style={{ width: '1200px', height: '800px', border: '1px solid black' }}></div>
 
             <Modal isOpen={modalIsOpen} onRequestClose={() => setModalIsOpen(false)}>
                 <h2>Modifier la Classe</h2>

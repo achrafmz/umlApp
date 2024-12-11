@@ -43,7 +43,7 @@ const generateJavaCode = (graph) => {
         // Ajouter les méthodes
         methods.forEach(method => {
             code += `    public ${method.returnType} ${method.name}() {\n`;
-            code += '        // TODO: implement this method\n';
+            code += '        // G5\n';
             code += '    }\n';
         });
         
