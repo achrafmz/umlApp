@@ -43,16 +43,16 @@ const Diagram = () => {
             height: 800,
             gridSize: 10,
         });
-
+    
         newPaper.on('element:pointerdblclick', (elementView) => {
             const model = elementView.model;
             setCurrentElement(model);
-            setClassName(model.attr('label/text'));
+            setClassName(model.attr('label/text').split('\n')[0]); // Ne prendre que le titre
             setAttributes(JSON.parse(model.attr('attributes') || '[]'));
             setMethods(JSON.parse(model.attr('methods') || '[]'));
             setModalIsOpen(true);
         });
-
+    
         newPaper.on('element:pointerclick', (elementView) => {
             if (isLinkMode) {
                 if (!sourceClass) {
@@ -70,22 +70,25 @@ const Diagram = () => {
                     setParentClass(null);
                     setIsInheritanceMode(false);
                 }
-            } else if (isInterfaceMode) {
-                createInterface(elementView.model);
-                setIsInterfaceMode(false);
             }
         });
-
+    
         newPaper.on('link:pointerdblclick', (linkView) => {
             const link = linkView.model;
-            setCurrentLink(link);
-            setMultiplicitySource(link.label(0)?.attrs?.text?.text || '1..1');
-            setMultiplicityTarget(link.label(1)?.attrs?.text?.text || '1..1');
-            setLinkModalIsOpen(true);
+            // Vérifie si le lien est un lien d'héritage
+            if (link.attr('line/targetMarker/type') === 'path') {
+                link.remove();
+            } else {
+                setCurrentLink(link);
+                setMultiplicitySource(link.label(0)?.attrs?.text?.text || '1..1');
+                setMultiplicityTarget(link.label(1)?.attrs?.text?.text || '1..1');
+                setLinkModalIsOpen(true);
+            }
         });
-
+    
         setPaper(newPaper);
-    }, [graph, isLinkMode, isInheritanceMode, isInterfaceMode, sourceClass, parentClass]);
+    }, [graph, isLinkMode, isInheritanceMode, sourceClass, parentClass]);
+    
 
     const addClass = () => {
         const rect = new shapes.standard.Rectangle();
@@ -93,13 +96,13 @@ const Diagram = () => {
         rect.resize(200, 150);
         rect.attr({
             label: {
-                text: formatClassBox(),
+                text: className,
                 fontSize: 12,
                 fontFamily: 'Arial',
                 textAnchor: 'middle',
             },
             body: {
-                fill: 'lightblue',
+                fill: 'lightgreen',
                 stroke: 'black',
                 strokeWidth: 2,
             },
@@ -115,7 +118,7 @@ const Diagram = () => {
         rect.resize(200, 150);
         rect.attr({
             label: {
-                text: formatInterfaceBox(),
+                text: `interface ${className}`,
                 fontSize: 12,
                 fontFamily: 'Arial',
                 textAnchor: 'middle',
@@ -133,7 +136,7 @@ const Diagram = () => {
     };
 
     const formatClassBox = () => {
-        return `${className || 'Nouvelle Classe'}\n---\n${formatAttributes()}\n---\n${formatMethods()}`;
+        return `${className || 'Nouvelle Classe'}\n---\n${formatAttributes()}\n---------------------------------------------------\n${formatMethods()}`;
     };
 
     const formatInterfaceBox = () => {
@@ -161,12 +164,9 @@ const Diagram = () => {
 
     const handleSave = () => {
         if (currentElement) {
-            const formattedAttributes = attributes.map(attr => `${attr.type} ${attr.name}`).join('\n');
-            const formattedMethods = methods.map(method => `${method.returnType} ${method.name}()`).join('\n');
-
             currentElement.attr({
                 label: {
-                    text: `${className.includes('interface') ? 'interface ' : ''}${className || 'Nouvelle Classe'}\n---\n${formattedAttributes}\n---\n${formattedMethods}`,
+                    text: `${className}\n---\n${formatAttributes()}\n---\n${formatMethods()}`, // Ne pas modifier le titre
                     fontSize: 12,
                     fontFamily: 'Arial',
                     textAnchor: 'middle',
@@ -224,7 +224,7 @@ const Diagram = () => {
                 },
             },
         });
-
+    
         link.labels([
             {
                 position: 0.1,
@@ -249,10 +249,11 @@ const Diagram = () => {
                 },
             },
         ]);
-
+    
         link.addTo(graph);
+        setIsLinkMode(false);  // Désactiver le mode après création du lien
     };
-
+    
     const createInheritance = (parentClass, childClass) => {
         const link = new shapes.standard.Link();
         link.source(childClass);
@@ -269,11 +270,12 @@ const Diagram = () => {
             },
         });
         link.addTo(graph);
+        setIsInheritanceMode(false);  // Désactiver le mode après création du lien
     };
+    
 
     const createInterface = (element) => {
         const link = new shapes.standard.Link();
-        link.source(element);
         link.source(element);
         link.target(currentElement);
         link.attr({
@@ -633,7 +635,7 @@ const Diagram = () => {
 
     return (
         <div>
-            <h1>Diagramme de Classes UML</h1>
+            <h1>Editeur Diagramme de Classes </h1>
             <Toolbar onAddClass={addClass} />
             <button onClick={enableLinkMode} disabled={isLinkMode || isInheritanceMode}>
                 Relier deux classes
@@ -641,9 +643,7 @@ const Diagram = () => {
             <button onClick={enableInheritanceMode} disabled={isLinkMode || isInheritanceMode}>
                 Héritage
             </button>
-            <button onClick={enableInterfaceMode} disabled={isLinkMode || isInheritanceMode}>
-                Implémenter une Interface
-            </button>
+           
             <button onClick={handleGenerateCode}>
                 Générer le Code Java
             </button>
@@ -653,9 +653,7 @@ const Diagram = () => {
             <button onClick={handleGeneratePythonCode}>
                 Générer le Code Python
             </button>
-            <button onClick={addInterface}>
-                Ajouter une Interface
-            </button>
+            
             <div 
                 id="paper" 
                 ref={paperRef}
@@ -688,6 +686,10 @@ const Diagram = () => {
                         <option value="string">String</option>
                         <option value="number">Number</option>
                         <option value="boolean">Boolean</option>
+                        <option value="boolean">Float</option>
+                        <option value="boolean">Date</option>
+
+
                     </select>
                     <button onClick={addAttribute}>Ajouter un attribut</button>
                 </div>
